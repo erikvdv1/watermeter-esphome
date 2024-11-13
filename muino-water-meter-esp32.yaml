@@ -1,5 +1,3 @@
-
-
 # These substitutions allow the end user to override certain values
 substitutions:
   name: "muino-water-meter"
@@ -16,7 +14,7 @@ esphome:
   # configuration and updates.
   project:
     name: esphome.muino-water-meter
-    version: "3.0.2"
+    version: "3.1.0"
 
 esp32:
   board: seeed_xiao_esp32c3
@@ -27,21 +25,8 @@ esp32:
 interval:
   - interval: 100ms
     then:
-      # - component.update: report_liters
-      # - component.update: report_liters_rounded
       - output.turn_on: sensor_power
-      - component.update: light_sensor_a_dark     
-      - lambda: |-     
-          if ((millis() - id(last_water_flow)) >= 60000) { // 300,000 ms = 5 minutes
-            // Update 'report_liters' and 'report_liters_rounded'
-            id(last_reported_liters__mili) = (int)(1000*(id(liters)+id(phase)/6.0)); 
-            id(last_reported_liters) = id(liters);
-            id(last_water_flow) = millis();
-          }
-
-  # - interval: 10s # Check every 10 seconds to reduce load, adjust as needed
-  #   then:
-  #     - lambda: |-
+      - component.update: light_sensor_a_dark
 
   # - interval: 1s
   #   then:
@@ -63,14 +48,6 @@ interval:
   #         format: "a:%d b:%d c:%d"
   #         args: [ 'id(min_a)', 'id(min_b)' , 'id(min_c)']
 
-# Toggle switch
-switch:
-  - platform: template 
-    optimistic: true
-    id: fastupdate
-    name: Speed mode
-    icon: "mdi:emoticon-cool-outline"
-
 output:
   - platform: gpio
     pin: 7
@@ -81,7 +58,7 @@ output:
 
 sensor:
   - platform: adc
-    pin: 
+    pin:
       number: 2
       allow_other_uses: true
       ignore_strapping_warning: true
@@ -103,7 +80,6 @@ sensor:
     on_value:
       then:
         component.update: light_sensor_c_dark
-    
   - platform: adc
     pin: 
       number: 4
@@ -117,12 +93,10 @@ sensor:
         - output.turn_on: led
         - delay: 50ms
         - component.update: light_sensor_a_light
-
   - platform: adc
     pin: 
       number: 2
       allow_other_uses: true
-
       ignore_strapping_warning: true
     name: "light_sensor_a_light"
     id: light_sensor_a_light
@@ -131,7 +105,6 @@ sensor:
     on_value:
       then:
         component.update: light_sensor_b_light
-
   - platform: adc
     pin: 
       number: 3
@@ -143,7 +116,6 @@ sensor:
     on_value:
       then:
         - component.update: light_sensor_c_light
-    
   - platform: adc
     pin: 
       number: 4
@@ -227,7 +199,6 @@ sensor:
     lambda: |-
       return id(light_sensor_c_light).state;
 
-
 # substracted values
   - platform: template
     name: "sensa_sub"
@@ -238,7 +209,6 @@ sensor:
     unit_of_measurement: "lx"
     accuracy_decimals: 0 
     lambda: |-
-    
       return id(aa);
 
   - platform: template
@@ -265,55 +235,24 @@ sensor:
 
 # liters
   - platform: template
-    name: "water_liter_sensor"
+    name: liters
     id: report_liters
-    force_update: false
     device_class: "water"
-    unit_of_measurement: "mL"
-    accuracy_decimals: 0 
+    unit_of_measurement: "L"
+    accuracy_decimals: 0
     state_class: total_increasing
+    update_interval: 16s
     lambda: |-
       if (id(liters) < 2){
         return 0;
-      }    
-      return id(last_reported_liters__mili);
-
-  - platform: template
-    name: "liters"
-    id: report_liters_rounded
-    force_update: false
-    device_class: "water"
-    unit_of_measurement: "L"
-    accuracy_decimals: 0 
-    state_class: total_increasing
-    lambda: |-
-      if (id(last_reported_liters) < 2){
-        return 0;
-      }  
-      return id(last_reported_liters);
+      }
+      return id(liters);
 
   - platform: template
     id: phase_coarse
     device_class: "water"
     state_class: "total"
     internal: true
-    on_value:
-      if:
-        condition:
-      # Same syntax for is_off
-          switch.is_on: fastupdate
-        then:
-          - component.update: report_liters
-          - component.update: report_liters_rounded
-          - component.update: al
-          - component.update: bl
-          - component.update: cl
-          - component.update: ad
-          - component.update: bd
-          - component.update: cd
-          - component.update: as
-          - component.update: bs
-          - component.update: cs
     lambda: |-
       int a = id(light_sensor_a_light).state - id(light_sensor_a_dark).state;
       int b = id(light_sensor_b_light).state - id(light_sensor_b_dark).state;
@@ -345,7 +284,6 @@ sensor:
         first = false;
         return 0;
       }
-
 
       float alpha_cor = 0.001;
       if (id(liters) < 2) {
@@ -391,7 +329,6 @@ sensor:
       
       short i = id(phase) > 2 ? id(phase) - 3 : id(phase);
       if (pn[i + 2] < pn[i + 1] && pn[i + 2] < pn[i]){
-          id(last_water_flow) = millis();
           if (pn[i + 1] > pn[i])
               id(phase)++;
           else
@@ -404,17 +341,7 @@ sensor:
           
       return id(liters);
 
-
 globals:
-  - id: last_reported_liters
-    type: int
-    initial_value: '0'
-  - id: last_reported_liters__mili
-    type: int
-    initial_value: '0'
-  - id: last_water_flow
-    type: uint32_t
-    initial_value: '0'
   - id: phase
     type: int
     initial_value: "0"
@@ -478,4 +405,3 @@ captive_portal:
 # save some energy
 # esp32_improv:
 #   authorizer: none
-
